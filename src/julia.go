@@ -4,13 +4,17 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"log"
 	"math/cmplx"
 	"os"
+	"runtime"
 	"strconv"
+	"sync"
+	"time"
 )
 
 type ComplexFunc func(complex128) complex128
@@ -27,12 +31,22 @@ var Funcs []ComplexFunc = []ComplexFunc{
 }
 
 func main() {
+	runtime.GOMAXPROCS(4)
+	start := time.Now()
+	wg := new(sync.WaitGroup)
 	for n, fn := range Funcs {
-		err := CreatePng("picture-"+strconv.Itoa(n)+".png", fn, 1024)
-		if err != nil {
-			log.Fatal(err)
-		}
+		wg.Add(1)
+		go func(n int, fn ComplexFunc) {
+			err := CreatePng("picture-"+strconv.Itoa(n)+".png", fn, 1024)
+			if err != nil {
+				log.Fatal(err)
+			}
+			wg.Done()
+		}(n, fn)
 	}
+	wg.Wait()
+	elapsed := time.Since(start)
+	fmt.Println(elapsed)
 }
 
 // CreatePng creates a PNG picture file with a Julia image of size n x n.
@@ -51,15 +65,24 @@ func Julia(f ComplexFunc, n int) image.Image {
 	bounds := image.Rect(-n/2, -n/2, n/2, n/2)
 	img := image.NewRGBA(bounds)
 	s := float64(n / 4)
-	for i := bounds.Min.X; i < bounds.Max.X; i++ {
-		for j := bounds.Min.Y; j < bounds.Max.Y; j++ {
-			n := Iterate(f, complex(float64(i)/s, float64(j)/s), 256)
-			r := uint8(0)
-			g := uint8(0)
-			b := uint8(n % 32 * 8)
-			img.Set(i, j, color.RGBA{r, g, b, 255})
-		}
+	size := n / 16
+	wg := new(sync.WaitGroup)
+	for xStart, xFinish := -n/2, -n/2+size; xStart < n/2; xStart, xFinish = xFinish, xFinish+size {
+		wg.Add(1)
+		go func(xStart, xFinish int) {
+			for i := xStart; i < xFinish; i++ {
+				for j := bounds.Min.Y; j < bounds.Max.Y; j++ {
+					n := Iterate(f, complex(float64(i)/s, float64(j)/s), 256)
+					r := uint8(0)
+					g := uint8(0)
+					b := uint8(n % 32 * 8)
+					img.Set(i, j, color.RGBA{r, g, b, 255})
+				}
+			}
+			wg.Done()
+		}(xStart, xFinish)
 	}
+	wg.Wait()
 	return img
 }
 
