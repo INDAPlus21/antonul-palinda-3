@@ -15,6 +15,9 @@ func WordCount(text string) map[string]int {
 	words := strings.Fields(text)
 	freqs := make(map[string]int)
 	for _, word := range words {
+		word = strings.ToLower(word)
+		word = strings.ReplaceAll(word, ".", "")
+		word = strings.ReplaceAll(word, ",", "")
 		freqs[word] += 1
 	}
 	return freqs
