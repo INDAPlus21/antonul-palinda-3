@@ -19,7 +19,7 @@ func WordCount(text string) map[string]int {
 	amount := len(words)
 
 	//Approx 1 ms per goroutine
-	routineSize := 1
+	routineSize := amount / 14
 
 	freq_chan := make(chan map[string]int, amount/routineSize+1)
 
@@ -84,7 +84,7 @@ func main() {
 
 	fmt.Printf("%#v", WordCount(string(data)))
 
-	numRuns := 1
+	numRuns := 100
 	runtimeMillis := benchmark(string(data), numRuns)
 	printResults(runtimeMillis, numRuns)
 }
